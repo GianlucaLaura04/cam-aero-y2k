@@ -1,18 +1,4 @@
-/* ============================================================
-   Sacar una foto con la mano ✌️
-   - Gesto: hacé la V de paz (índice y medio estirados, el resto cerrado)
-     y mantenela ~0,7 s. Cuenta regresiva 3-2-1, flash y listo.
-   - También hay un botón "📷 Foto" y la tecla F.
-   - La foto sale con el filtro puesto, dentro de un marco estilo
-     polaroid con los colores del tema, y se puede guardar o compartir.
 
-   Es autónomo: inyecta su propio CSS y HTML. Solo necesita UNA línea
-   en el bucle principal de index.html (ver abajo) para recibir las manos:
-
-       window.__hands = hands; window.__handsT = now;
-
-   Uso: <script src="photo.js"></script> antes de </body>.
-   ============================================================ */
 (function () {
     "use strict";
 

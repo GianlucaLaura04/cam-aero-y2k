@@ -1,12 +1,4 @@
-/* ============================================================
-   Pantalla de carga estilo instalador Y2K.
-   Es autónoma: inyecta su propio CSS y HTML, y avanza según
-   lo que pasa de verdad en la página:
-     - descarga del motor y del modelo de manos (PerformanceObserver)
-     - texto de #info ("¡Listo!" / "Error ...")
-     - primer cuadro de cámara (#info se oculta)
-   Uso: <script src="loader.js"></script> justo después de <body>.
-   ============================================================ */
+
 (function () {
     "use strict";
 
