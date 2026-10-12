@@ -163,7 +163,25 @@ body.bg-lime  { background: linear-gradient(160deg, #a3e635, #22d3ee); }
     <script src="loader.js"></script>
     <video id="webcam" autoplay playsinline></video>
     <button id="music" type="button">🎵 Activar música</button>
+
+    <!-- Botón de foto existente -->
+    <button id="shotBtn" type="button">📷 Foto</button>
+
+    <!-- NUEVO: Instructivo fijo en la esquina superior izquierda -->
+    <div id="instructions-corner">
+        <strong>Instrucciones:</strong>
+        <ul>
+            <li>Cerrá el puño ➔ Cambiar filtro</li>
+            <li>Subí/bajá la mano ➔ Intensidad</li>
+            <li>Dos manos ➔ Galería de filtros</li>
+            <li>Pellizcá ➔ Elegir en galería</li>
+            <li>Gesto de V / Tecla F ➔ Sacar foto</li>
+        </ul>
+    </div>
+
     <div id="stage">
+    <!-- (el resto de tu estructura #stage sigue exactamente igual) -->
+    <!-- CÁMARA / APP EN EL CENTRO (Estructura original intacta) -->
     <div id="frame" class="f-aero">
         <div id="titlebar"><span class="logo"></span><span id="title"></span><span class="wbtns"><b>_</b><b>□</b><b class="x">✕</b></span></div>
         <div id="menubar"></div>
@@ -183,6 +201,50 @@ body.bg-lime  { background: linear-gradient(160deg, #a3e635, #22d3ee); }
     <div id="info">Cargando inteligencia artificial...</div>
     <div id="credit">Hecho por @Shianlu.mp4 · <a href="mailto:tu@email.com">lauragianluca14@gmail.com</a></div>
 <style>
+    /* ===== Estilos para el Instructivo a la izquierda ===== */
+/* ===== Instructivo en la esquina superior izquierda ===== */
+#instructions-corner {
+    position: fixed;
+    top: 60px; /* Se coloca justo debajo del botón de foto */
+    left: max(12px, env(safe-area-inset-left));
+    z-index: 20;
+    width: 230px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-family: Tahoma, Verdana, sans-serif;
+    font-size: 11px;
+    color: #0b3556;
+    text-shadow: 0 0 4px #fff;
+    border: 1px solid rgba(255, 255, 255, 0.95);
+    background: linear-gradient(180deg, #96dcff 50%, #96dcff 50% 100%);
+    box-shadow: 0 4px 14px rgba(0, 60, 120, 0.4), inset 0 0 8px rgba(255, 255, 255, 0.8);
+    pointer-events: none; /* Para que no interfiera si pasas el mouse por encima */
+}
+
+#instructions-corner strong {
+    display: block;
+    margin-bottom: 4px;
+    text-align: center;
+    border-bottom: 1px dotted rgba(11, 53, 86, 0.3);
+    padding-bottom: 2px;
+}
+
+#instructions-corner ul {
+    margin: 0;
+    padding-left: 14px;
+    line-height: 1.3;
+}
+
+#instructions-corner li {
+    margin-bottom: 3px;
+}
+
+/* En celulares o pantallas muy chicas, lo ocultamos o adaptamos para que no tape la cámara */
+@media (max-width: 768px) {
+    #instructions-corner {
+        display: none; /* Opcional: en móvil se oculta para ganar espacio, ya que usan la app con gestos directos */
+    }
+}
 #credit {
     position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom)); z-index: 30;
     display: flex; align-items: center; gap: 8px; padding: 5px 14px 5px 6px; border-radius: 999px;
