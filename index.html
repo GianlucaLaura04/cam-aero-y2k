@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Filtros con Gestos</title>
+    <style>
+        body {
+            margin: 0;
+            background: #111;
+            color: white;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        video { display: none; }
+        canvas {
+            border-radius: 10px;
+            transform: scaleX(-1); /* Efecto espejo */
+        }
+        #info { margin-top: 15px; font-size: 1.2rem; letter-spacing: 2px; }
+        /* ===== Y2K: fondos, marcos y stickers ===== */
+body { overflow: hidden; }
+body.bg-aero  { background: radial-gradient(circle at 25% 15%, rgba(255,255,255,.8), transparent 45%), linear-gradient(160deg, #38bdf8, #0ea5e9 45%, #6ee7a8); }
+body.bg-xp    { background: radial-gradient(ellipse 130% 50% at 35% 112%, #3f9b1f 0 62%, transparent 63%), linear-gradient(180deg, #1f5fe0, #8cc6ff 72%); }
+body.bg-paint { background: #008080; }
+body.bg-error { background: #0000aa; }
+
+#stage { position: relative; }
+#frame { position: relative; z-index: 2; font-family: Tahoma, Verdana, sans-serif; font-size: 13px; color: #000; }
+#frame.pop { animation: pop .35s cubic-bezier(.2,1.4,.4,1); }
+@keyframes pop { from { transform: scale(.94); } to { transform: scale(1); } }
+@keyframes shake { 0% { transform: translate(0,0); } 50% { transform: translate(2px,-1px); } 100% { transform: translate(-2px,1px); } }
+#screen { line-height: 0; }
+canvas { display: block; border-radius: 0; }
+
+#titlebar { display: flex; align-items: center; gap: 6px; height: 30px; font-weight: bold; font-size: 14px; color: #fff; }
+#title { flex: 1; white-space: nowrap; }
+.logo { width: 16px; height: 16px;
+    background: linear-gradient(#f25022,#f25022) 0 0/7px 7px no-repeat, linear-gradient(#7fba00,#7fba00) 100% 0/7px 7px no-repeat,
+                linear-gradient(#00a4ef,#00a4ef) 0 100%/7px 7px no-repeat, linear-gradient(#ffb900,#ffb900) 100% 100%/7px 7px no-repeat; }
+.wbtns { display: flex; gap: 2px; }
+.wbtns b { width: 21px; height: 21px; display: grid; place-items: center; font-size: 12px; border-radius: 3px;
+    border: 1px solid #fff; color: #fff; background: linear-gradient(135deg, #5b95ff, #1a50d8); }
+.wbtns b.x { background: linear-gradient(135deg, #f0866b, #c8381c); }
+#menubar { display: flex; gap: 14px; padding: 3px 8px; background: #ece9d8; }
+#menubar:empty { display: none; }
+#statusbar { padding: 3px 8px; background: #ece9d8; font-size: 12px; border-top: 1px solid #aca899; }
+#palette { display: none; flex-wrap: wrap; padding: 4px; background: #c0c0c0; }
+#palette i { display: block; width: 16px; height: 16px; border: 1px solid; border-color: #808080 #fff #fff #808080; }
+
+/* TV RETRO -> Windows XP */
+.f-xp { background: #0831d9; padding: 0 4px 4px; border-radius: 9px 9px 2px 2px; box-shadow: 0 8px 24px rgba(0,0,0,.45); }
+.f-xp #titlebar { margin: 0 -4px; padding: 0 4px 0 8px; border-radius: 8px 8px 0 0; text-shadow: 1px 1px #0f1089;
+    background: linear-gradient(180deg, #0997ff 0%, #0053ee 10%, #0050ee 50%, #0066ff 88%, #0050ee 100%); }
+
+/* DUOTONO -> Frutiger Aero */
+.f-aero { padding: 0 8px 8px; border-radius: 14px; border: 1px solid rgba(255,255,255,.9); backdrop-filter: blur(8px);
+    background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(120,210,255,.45));
+    box-shadow: 0 10px 30px rgba(0,60,120,.45), inset 0 0 18px rgba(255,255,255,.7); }
+.f-aero #titlebar { margin: 0 -8px; padding: 0 8px; color: #0b3556; text-shadow: 0 0 8px #fff, 0 0 3px #fff; border-radius: 13px 13px 0 0;
+    background: linear-gradient(180deg, rgba(255,255,255,.7) 0 50%, rgba(255,255,255,.15) 50% 100%); }
+.f-aero .logo { border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, #7fe0ff 45%, #1c8ad8); }
+.f-aero .wbtns b { width: 26px; height: 18px; border-radius: 0 0 6px 6px; border-color: #3b6a94; color: #123;
+    background: linear-gradient(#e8f4ff, #9cc7ea 50%, #6fa9d6 50%, #a6d3f2); }
+.f-aero .wbtns b.x { color: #fff; background: linear-gradient(#f5b3a8, #e0533a 50%, #c4311a 50%, #ee7a62); }
+.f-aero #menubar, .f-aero #statusbar { background: transparent; color: #0b3556; text-shadow: 0 0 4px #fff; border: 0; }
+.f-aero #screen { border: 1px solid rgba(0,60,120,.6); }
+
+/* PIXELADO -> Paint Win98 */
+.f-paint { background: #c0c0c0; padding: 3px; border: 2px solid; border-color: #fff #404040 #404040 #fff; box-shadow: 1px 1px 0 #000, 0 8px 20px rgba(0,0,0,.4); }
+.f-paint #titlebar { height: 22px; font-size: 13px; margin-bottom: 2px; background: linear-gradient(90deg, #000080, #1084d0); }
+.f-paint .logo { display: none; }
+.f-paint .wbtns b { width: 16px; height: 14px; border-radius: 0; font-size: 10px; color: #000; background: #c0c0c0; border: 2px solid; border-color: #fff #404040 #404040 #fff; }
+.f-paint #menubar, .f-paint #statusbar { background: #c0c0c0; border-top: 0; }
+.f-paint #screen { border: 2px solid; border-color: #808080 #fff #fff #808080; }
+.f-paint #palette { display: flex; }
+
+/* GLITCH -> diálogo de error */
+.f-error { background: #7a0000; padding: 0 4px 4px; border-radius: 9px 9px 2px 2px; box-shadow: 0 8px 24px rgba(0,0,0,.5); animation: shake .35s steps(2) infinite; }
+.f-error #titlebar { margin: 0 -4px; padding: 0 4px 0 8px; border-radius: 8px 8px 0 0; text-shadow: 1px 1px #500;
+    background: linear-gradient(180deg, #ff6a5a 0%, #d42a1a 12%, #c01c0e 50%, #e03a2a 90%, #b01208 100%); }
+
+/* Stickers */
+#stickers { position: absolute; inset: -110px; pointer-events: none; z-index: 5; }
+.sticker { position: absolute; left: 50%; top: 50%; opacity: 0;
+    transition: left .9s cubic-bezier(.2,.9,.3,1.15), top .9s cubic-bezier(.2,.9,.3,1.15), transform .9s cubic-bezier(.2,.9,.3,1.15), opacity .5s; }
+.sticker img { width: 100%; display: block; filter: drop-shadow(0 6px 10px rgba(0,0,0,.35)); animation: float 5s ease-in-out infinite alternate; }
+@keyframes float { from { transform: translateY(-7px) rotate(-2deg); } to { transform: translateY(7px) rotate(3deg); } }
+/* fondos nuevos */
+body.bg-heat  { background: radial-gradient(circle at 70% 20%, #ffe066, transparent 50%), linear-gradient(160deg, #ff3d6e, #ff8a3d 55%, #ffd23d); }
+body.bg-night { background: radial-gradient(circle at 20% 15%, rgba(80,120,255,.45), transparent 45%), linear-gradient(180deg, #060b24, #101a4a 70%, #1b2a6b); }
+body.bg-pop   { background: radial-gradient(circle at 15% 85%, #ffe14d, transparent 40%), linear-gradient(135deg, #ff7ac8, #ffb36b); }
+body.bg-term  { background: radial-gradient(ellipse at 50% 40%, #07210f, #000 70%); }
+body.bg-dusk  { background: radial-gradient(circle at 80% 15%, rgba(255,255,255,.6), transparent 40%), linear-gradient(160deg, #a78bfa, #f0abfc 55%, #fda4af); }
+body.bg-water { background: radial-gradient(circle at 30% 10%, rgba(255,255,255,.55), transparent 40%), linear-gradient(180deg, #5eead4, #0ea5e9 55%, #1e3a8a); }
+body.bg-lime  { background: linear-gradient(160deg, #a3e635, #22d3ee); }
+
+/* ASCII -> consola */
+.f-term { background: #c0c0c0; padding: 3px; border: 2px solid; border-color: #fff #404040 #404040 #fff; box-shadow: 0 8px 24px rgba(0,0,0,.6), 0 0 30px rgba(0,255,100,.15); }
+.f-term #titlebar { height: 22px; font-size: 13px; margin-bottom: 2px; background: linear-gradient(90deg, #404040, #808080); }
+.f-term .logo { display: none; }
+.f-term .wbtns b { width: 16px; height: 14px; border-radius: 0; font-size: 10px; color: #000; background: #c0c0c0; border: 2px solid; border-color: #fff #404040 #404040 #fff; }
+.f-term #screen { border: 2px solid; border-color: #808080 #fff #fff #808080; }
+.f-term #statusbar { background: #000; color: #33ff66; font-family: 'Courier New', monospace; border-top: 0; }
+
+/* BORDES NEÓN y CALEIDOSCOPIO -> reproductor oscuro */
+.f-media { padding: 0 6px 6px; border-radius: 10px; background: linear-gradient(180deg, #1b2a4a, #070d1c); border: 1px solid #5f7fbf;
+    box-shadow: 0 10px 30px rgba(0,0,0,.6), 0 0 24px rgba(80,140,255,.35), inset 0 1px 0 rgba(255,255,255,.35); }
+.f-media #titlebar { margin: 0 -6px; padding: 0 6px; border-radius: 9px 9px 0 0; color: #dbe8ff; text-shadow: 0 0 6px #3d7bff;
+    background: linear-gradient(180deg, rgba(255,255,255,.28) 0 50%, rgba(255,255,255,.04) 50% 100%); }
+.f-media .logo { border-radius: 50%; background: radial-gradient(circle at 35% 30%, #e6ffd0, #5fd13a 50%, #1f6d10); }
+.f-media .wbtns b { width: 26px; height: 18px; border-radius: 0 0 6px 6px; border-color: #5f7fbf; color: #dbe8ff; background: linear-gradient(#34508a, #14234a 50%, #0b1430 50%, #22397a); }
+.f-media .wbtns b.x { background: linear-gradient(#d86a5a, #a02a1a 50%, #7d1608 50%, #c24a38); }
+.f-media #menubar, .f-media #statusbar { background: transparent; color: #bcd2ff; border: 0; }
+.f-media #screen { border: 1px solid #5f7fbf; box-shadow: 0 0 14px rgba(80,140,255,.4); }
+
+.sticker img.px { image-rendering: pixelated; }
+
+#music { position: fixed; top: 12px; right: 12px; z-index: 20; padding: 7px 14px; border-radius: 16px; cursor: pointer;
+    font: bold 13px Tahoma, Verdana, sans-serif; color: #0b3556; text-shadow: 0 0 4px #fff;
+    border: 1px solid rgba(255,255,255,.9); box-shadow: 0 4px 14px rgba(0,60,120,.4), inset 0 0 8px rgba(255,255,255,.8);
+    background: linear-gradient(180deg, rgba(255,255,255,.85) 0 50%, rgba(150,220,255,.7) 50% 100%); }
+#music:hover { filter: brightness(1.08); }
+
+/* ===== Galería de filtros (dos manos abiertas) ===== */
+#screen { position: relative; }
+#gallery { position: absolute; inset: 0; display: none; flex-direction: column; z-index: 3; line-height: normal;
+    background: rgba(5,10,30,.66); }
+#gallery.open { display: flex; }
+#gtitle { height: 34px; display: flex; align-items: center; justify-content: center; color: #fff; font: bold 13px Tahoma, Verdana, sans-serif;
+    letter-spacing: .5px; text-shadow: 0 0 8px #38bdf8; }
+#ggrid { position: relative; flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 0 10px 10px; }
+.gcard { position: relative; overflow: hidden; border-radius: 8px; background: #000; border: 2px solid rgba(255,255,255,.55);
+    transition: transform .12s, box-shadow .12s, border-color .12s; }
+.gcard canvas { width: 100%; height: 100%; object-fit: cover; display: block; } /* el espejo lo aplica la regla global de canvas */
+.gname { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 4px 4px; text-align: center; color: #fff;
+    font: bold 11px Tahoma, Verdana, sans-serif; letter-spacing: .5px; text-shadow: 0 1px 3px #000;
+    background: linear-gradient(transparent, rgba(0,0,0,.8)); }
+.gbadge { display: none; position: absolute; top: 4px; right: 4px; padding: 1px 6px; border-radius: 8px; background: #ffe14d; color: #000;
+    font: bold 9px Tahoma, sans-serif; }
+.gcard.cur { border-color: #ffe14d; }
+.gcard.cur .gbadge { display: block; }
+.gcard.hover { transform: scale(1.07); z-index: 2; border-color: #fff; box-shadow: 0 0 18px #38bdf8, 0 0 4px #fff; }
+.gcard.gclose { display: grid; place-items: center; text-align: center; color: #fff; font: bold 13px Tahoma, sans-serif;
+    background: linear-gradient(160deg, #e0533a, #7d1608); }
+.gcard.gclose span { font-size: 28px; display: block; line-height: 1.1; }
+#gcursor { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; border: 3px solid #fff; pointer-events: none;
+    box-shadow: 0 0 12px #38bdf8, inset 0 0 8px #38bdf8; opacity: 0; z-index: 5; transition: transform .1s;
+    background: rgba(56,189,248,.15); }
+#gcursor.pinch { transform: scale(.6); background: #fff; }
+#hold { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: 230px; padding: 6px 10px; border-radius: 14px;
+    background: rgba(0,0,0,.7); color: #fff; font: bold 12px Tahoma, sans-serif; line-height: normal; text-align: center;
+    opacity: 0; transition: opacity .15s; z-index: 6; pointer-events: none; }
+#hold.on { opacity: 1; }
+#holdbar { height: 6px; margin-top: 5px; border-radius: 3px; background: rgba(255,255,255,.25); overflow: hidden; }
+#holdfill { height: 100%; width: 0; background: linear-gradient(90deg, #6ee7a8, #38bdf8); }
+    </style>
+</head>
+<body>
+    <script src="loader.js"></script>
+    <video id="webcam" autoplay playsinline></video>
+    <button id="music" type="button">🎵 Activar música</button>
+    <div id="stage">
+    <div id="frame" class="f-aero">
+        <div id="titlebar"><span class="logo"></span><span id="title"></span><span class="wbtns"><b>_</b><b>□</b><b class="x">✕</b></span></div>
+        <div id="menubar"></div>
+        <div id="screen"><canvas id="output_canvas" width="640" height="480"></canvas>
+            <div id="gallery">
+                <div id="gtitle">GALERÍA DE FILTROS · pellizcá el que quieras</div>
+                <div id="ggrid"></div>
+                <div id="gcursor"></div>
+            </div>
+            <div id="hold"><span id="holdtext"></span><div id="holdbar"><div id="holdfill"></div></div></div>
+        </div>
+        <div id="palette"></div>
+        <div id="statusbar"><span id="status"></span></div>
+    </div>
+    <div id="stickers"></div>
+</div>
+    <div id="info">Cargando inteligencia artificial...</div>
+    <div id="credit">Hecho por @Shianlu.mp4 · <a href="mailto:tu@email.com">lauragianluca14@gmail.com</a></div>
+<style>
+#credit {
+    position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom)); z-index: 30;
+    display: flex; align-items: center; gap: 8px; padding: 5px 14px 5px 6px; border-radius: 999px;
+    font: bold 12px Tahoma, Verdana, sans-serif; color: #0b3556; text-shadow: 0 0 4px #fff;
+    border: 1px solid rgba(255,255,255,.95);
+    background: linear-gradient(180deg, rgba(255,255,255,.9) 0 50%, rgba(150,220,255,.75) 50% 100%);
+    box-shadow: 0 4px 14px rgba(0,60,120,.4), inset 0 0 8px rgba(255,255,255,.8);
+    opacity: .9; transition: transform .15s, opacity .15s;
+}
+#credit:hover { opacity: 1; transform: translateY(-2px) scale(1.03); }
+#credit .orb { width: 18px; height: 18px; border-radius: 50%; flex: none;
+    background: radial-gradient(circle at 35% 30%, #fff, #7fe0ff 45%, #1c8ad8); box-shadow: 0 0 6px #7fe0ff; }
+#credit .star { color: #e0533a; animation: twinkle 1.8s ease-in-out infinite alternate; }
+@keyframes twinkle { from { opacity: .35; transform: scale(.8) rotate(0deg); } to { opacity: 1; transform: scale(1.2) rotate(35deg); } }
+#credit a { color: #0b3556; text-decoration: none; border-bottom: 1px dotted #0b3556; }
+#credit a:hover { color: #1a50d8; }
+@media (max-width: 600px) { #credit { font-size: 10px; gap: 5px; padding: 3px 10px 3px 5px; } #credit .orb { width: 13px; height: 13px; } }
+@media (prefers-reduced-motion: reduce) { #credit .star { animation: none; } }
+</style>
+
+    <script type="module">
+        import { HandLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0";
+
+        const SHOW_HAND = true; // puntos de la mano; ponelo en false para la versión final
+
+        const video = document.getElementById("webcam");
+        const canvasElement = document.getElementById("output_canvas");
+        const ctx = canvasElement.getContext("2d", { willReadFrequently: true });
+        const infoDiv = document.getElementById("info");
+        const W = canvasElement.width, H = canvasElement.height;
+
+        let handLandmarker = undefined;
+
+        // 1. Inicializar MediaPipe HandLandmarker
+        async function createHandLandmarker() {
+            try {
+                const vision = await FilesetResolver.forVisionTasks(
+                    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
+                );
+                handLandmarker = await HandLandmarker.createFromOptions(vision, {
+                    baseOptions: {
+                        modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
+                        delegate: "GPU"
+                    },
+                    runningMode: "VIDEO",
+                    numHands: 2
+                });
+                infoDiv.innerText = "¡Listo! Muestra tu mano a la cámara.";
+                startWebcam();
+            } catch (error) {
+                infoDiv.innerText = "Error al cargar MediaPipe: " + error.message;
+                console.error(error);
+            }
+        }
+
+        // 2. Encender la cámara web
+        function startWebcam() {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then((stream) => {
+                    video.srcObject = stream;
+                    video.addEventListener("loadeddata", predictWebcam);
+                })
+                .catch((err) => {
+                    infoDiv.innerText = "Error: No se pudo acceder a la cámara. ¿Diste permisos?";
+                    console.error(err);
+                });
+        }
+
+        // ================= Utilidades =================
+        const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
+        const dist = (a, b) => Math.hypot((a.x - b.x) * W, (a.y - b.y) * H); // con proporción real
+
+        function hsl(h, s, l) {
+            h = (((h % 360) + 360) % 360) / 360;
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+            const f = (t) => {
+                if (t < 0) t += 1; if (t > 1) t -= 1;
+                if (t < 1 / 6) return p + (q - p) * 6 * t;
+                if (t < 1 / 2) return q;
+                if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+                return p;
+            };
+            return [f(h + 1 / 3) * 255, f(h) * 255, f(h - 1 / 3) * 255];
+        }
+
+        const outImg = ctx.createImageData(W, H);
+
+        // viñeta precalculada (0 centro -> 1 esquinas)
+        const vig = new Float32Array(W * H);
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+            const dx = (x - W / 2) / (W / 2), dy = (y - H / 2) / (H / 2);
+            vig[y * W + x] = (dx * dx + dy * dy) / 2;
+        }
+
+        // ================= Filtros =================
+        // a = intensidad (altura de la mano) | b = parámetro 2 (inclinación de la mano)
+
+        // 1) DUOTONO: b elige el par de colores
+        function duotono(a, b) {
+            const img = ctx.getImageData(0, 0, W, H), d = img.data;
+            const dark = hsl(b * 360, 0.8, 0.1), light = hsl(b * 360 + 150, 1, 0.65);
+            const lut = new Float32Array(256 * 3);
+            for (let i = 0; i < 256; i++) for (let c = 0; c < 3; c++)
+                lut[i * 3 + c] = dark[c] + (light[c] - dark[c]) * (i / 255);
+            for (let i = 0; i < d.length; i += 4) {
+                const l = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) | 0;
+                d[i]     += (lut[l * 3]     - d[i])     * a;
+                d[i + 1] += (lut[l * 3 + 1] - d[i + 1]) * a;
+                d[i + 2] += (lut[l * 3 + 2] - d[i + 2]) * a;
+            }
+            ctx.putImageData(img, 0, 0);
+        }
+
+        // 2) TV RETRO: scanlines, ruido, viñeta, separación RGB. b = distorsión de tracking
+        function tvRetro(a, b, t) {
+            const src = ctx.getImageData(0, 0, W, H).data, d = outImg.data;
+            const split = Math.round(a * 5), wob = a * (2 + b * 16);
+            const noise = a * 40, scan = a * 0.5, vigS = a * 0.6;
+            for (let y = 0; y < H; y++) {
+                let off = Math.round(Math.sin(y * 0.05 + t * 0.004) * wob * 0.5);
+                const band = (((y - t * 0.12) % H) + H) % H;
+                if (band < 14) off += Math.round(a * (5 + b * 30) * Math.sin(band / 14 * Math.PI));
+                const row = y * W, line = (y % 3 === 0) ? 1 - scan : 1;
+                for (let x = 0; x < W; x++) {
+                    let sx = x + off; sx = sx < 0 ? 0 : sx >= W ? W - 1 : sx;
+                    let xr = sx - split; xr = xr < 0 ? 0 : xr;
+                    let xb = sx + split; xb = xb >= W ? W - 1 : xb;
+                    const i = (row + x) * 4;
+                    const n = (Math.random() - 0.5) * noise * 2;
+                    const k = line * (1 - vigS * vig[row + x]);
+                    d[i]     = (src[(row + xr) * 4] + n) * k;
+                    d[i + 1] = (src[(row + sx) * 4 + 1] * (1 + 0.04 * a) + n) * k;
+                    d[i + 2] = (src[(row + xb) * 4 + 2] + n) * k;
+                    d[i + 3] = 255;
+                }
+            }
+            ctx.putImageData(outImg, 0, 0);
+        }
+
+        // 3) PIXELADO: a = tamaño del bloque, b = cantidad de colores
+        const small = document.createElement("canvas");
+        const sctx = small.getContext("2d", { willReadFrequently: true });
+        function pixelado(a, b) {
+            const size = Math.max(1, Math.round(1 + a * 30));
+            const sw = Math.ceil(W / size), sh = Math.ceil(H / size);
+            if (small.width !== sw || small.height !== sh) { small.width = sw; small.height = sh; }
+            sctx.drawImage(canvasElement, 0, 0, sw, sh);
+            const img = sctx.getImageData(0, 0, sw, sh), d = img.data;
+            const levels = Math.round(32 - a * (32 - (2 + b * 10)));
+            const step = 255 / (levels - 1);
+            for (let i = 0; i < d.length; i += 4) {
+                d[i]     = Math.round(d[i] / step) * step;
+                d[i + 1] = Math.round(d[i + 1] / step) * step;
+                d[i + 2] = Math.round(d[i + 2] / step) * step;
+            }
+            sctx.putImageData(img, 0, 0);
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(small, 0, 0, sw, sh, 0, 0, sw * size, sh * size);
+            ctx.imageSmoothingEnabled = true;
+        }
+
+        // 4) GLITCH: a = franjas desplazadas, b = separación RGB
+        let slices = [], slicesUntil = 0;
+        function glitch(a, b, t) {
+            if (t > slicesUntil) {
+                slices = [];
+                const n = Math.floor(a * 7);
+                for (let i = 0; i < n; i++) slices.push({
+                    y: Math.random() * H,
+                    h: 5 + Math.random() * H * 0.12 * a,
+                    dx: (Math.random() - 0.5) * 2 * a * 120
+                });
+                slicesUntil = t + 60 + Math.random() * 120;
+            }
+            for (const s of slices) ctx.drawImage(canvasElement, 0, s.y, W, s.h, s.dx, s.y, W, s.h);
+
+            const sp = Math.round(a * b * 30);
+            if (sp < 1) return;
+            const src = ctx.getImageData(0, 0, W, H).data, d = outImg.data;
+            for (let y = 0; y < H; y++) {
+                const row = y * W;
+                for (let x = 0; x < W; x++) {
+                    const xr = x - sp < 0 ? 0 : x - sp, xb = x + sp >= W ? W - 1 : x + sp;
+                    const i = (row + x) * 4;
+                    d[i]     = src[(row + xr) * 4];
+                    d[i + 1] = src[i + 1];
+                    d[i + 2] = src[(row + xb) * 4 + 2];
+                    d[i + 3] = 255;
+                }
+            }
+            ctx.putImageData(outImg, 0, 0);
+        }
+
+        // ================= Filtros extra =================
+for (let i = 3; i < outImg.data.length; i += 4) outImg.data[i] = 255; // alfa opaco
+
+// 5) TÉRMICO: luminancia -> mapa de calor. b rota la paleta
+function termico(a, b) {
+    const img = ctx.getImageData(0, 0, W, H), d = img.data;
+    const lut = new Uint8ClampedArray(256 * 3);
+    for (let i = 0; i < 256; i++) {
+        const t = i / 255;
+        const c = hsl(270 - 210 * t + (b - 0.5) * 160, 1, 0.06 + 0.84 * Math.pow(t, 1.3));
+        lut[i * 3] = c[0]; lut[i * 3 + 1] = c[1]; lut[i * 3 + 2] = c[2];
+    }
+    for (let i = 0; i < d.length; i += 4) {
+        let l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+        l = clamp((l - 128) * 1.25 + 128, 0, 255) | 0;
+        d[i]     += (lut[l * 3]     - d[i])     * a;
+        d[i + 1] += (lut[l * 3 + 1] - d[i + 1]) * a;
+        d[i + 2] += (lut[l * 3 + 2] - d[i + 2]) * a;
+    }
+    ctx.putImageData(img, 0, 0);
+}
+
+// 6) BORDES NEÓN: detección de bordes (Sobel) con brillo. a = intensidad, b = color
+const glowCan = document.createElement("canvas");
+glowCan.width = 80; glowCan.height = 60;
+const gctx = glowCan.getContext("2d");
+const gray = new Uint8Array(W * H);
+function bordesNeon(a, b) {
+    const src = ctx.getImageData(0, 0, W, H).data, d = outImg.data;
+    for (let i = 0, p = 0; i < gray.length; i++, p += 4) gray[i] = (src[p] * 77 + src[p + 1] * 150 + src[p + 2] * 29) >> 8;
+    const dim = 1 - a * 0.85, gain = 0.7 + a * 1.6;
+    const lut = [];
+    for (let i = 0; i < 256; i++) lut.push(hsl(b * 360 + i * 0.25, 1, 0.55));
+    for (let y = 1; y < H - 1; y++) {
+        for (let x = 1; x < W - 1; x++) {
+            const i = y * W + x;
+            const gx = gray[i - W + 1] + 2 * gray[i + 1] + gray[i + W + 1] - gray[i - W - 1] - 2 * gray[i - 1] - gray[i + W - 1];
+            const gy = gray[i + W - 1] + 2 * gray[i + W] + gray[i + W + 1] - gray[i - W - 1] - 2 * gray[i - W] - gray[i - W + 1];
+            let m = (Math.abs(gx) + Math.abs(gy)) * 0.5 * gain;
+            m = m > 255 ? 255 : m | 0;
+            const c = lut[m], k = m / 255, p = i * 4;
+            d[p]     = src[p]     * dim * 0.5 + c[0] * k;
+            d[p + 1] = src[p + 1] * dim * 0.5 + c[1] * k;
+            d[p + 2] = src[p + 2] * dim * 0.5 + c[2] * k;
+        }
+    }
+    ctx.putImageData(outImg, 0, 0);
+    gctx.drawImage(canvasElement, 0, 0, 80, 60); // versión chica = halo suave al agrandarla
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = 0.5 + a * 0.5;
+    ctx.drawImage(glowCan, 0, 0, W, H);
+    ctx.restore();
+}
+
+// 7) HALFTONE: puntos de imprenta. a = tamaño, b = estilo (color / blanco y negro / neón)
+function halftone(a, b) {
+    const cell = 5 + Math.round(a * 11);
+    const sw = Math.ceil(W / cell), sh = Math.ceil(H / cell);
+    if (small.width !== sw || small.height !== sh) { small.width = sw; small.height = sh; }
+    sctx.drawImage(canvasElement, 0, 0, sw, sh);
+    const s = sctx.getImageData(0, 0, sw, sh).data;
+    const mode = b < 0.34 ? 0 : b < 0.67 ? 1 : 2;
+    ctx.fillStyle = mode === 2 ? "#06060c" : "#f4efe2";
+    ctx.fillRect(0, 0, W, H);
+    if (mode === 1) ctx.fillStyle = "#111";
+    for (let y = 0; y < sh; y++) {
+        for (let x = 0; x < sw; x++) {
+            const p = (y * sw + x) * 4, r = s[p], g = s[p + 1], bl = s[p + 2];
+            const l = (0.299 * r + 0.587 * g + 0.114 * bl) / 255;
+            const rad = cell * 0.78 * Math.sqrt(mode === 2 ? l : 1 - l * 0.85);
+            if (rad < 0.4) continue;
+            if (mode !== 1) ctx.fillStyle = `rgb(${r},${g},${bl})`;
+            ctx.beginPath();
+            ctx.arc(x * cell + cell / 2, y * cell + cell / 2, rad, 0, 6.2832);
+            ctx.fill();
+        }
+    }
+}
+
+// 8) ASCII: la imagen hecha de letras. a = intensidad, b = color
+const RAMP = " .:-=+*#%@";
+function ascii(a, b) {
+    const cw = 8, ch = 12, cols = Math.floor(W / cw), rows = Math.floor(H / ch);
+    if (small.width !== cols || small.height !== rows) { small.width = cols; small.height = rows; }
+    sctx.drawImage(canvasElement, 0, 0, cols, rows);
+    const s = sctx.getImageData(0, 0, cols, rows).data;
+    ctx.fillStyle = `rgba(0,0,0,${0.15 + a * 0.8})`;
+    ctx.fillRect(0, 0, W, H);
+    ctx.save();
+    // el canvas se espeja por CSS, así que el texto se dibuja invertido para que se lea bien
+    ctx.translate(W, 0); ctx.scale(-1, 1);
+    ctx.font = "bold 12px 'Courier New', monospace";
+    ctx.textBaseline = "top";
+    const hue = (100 + b * 260) % 360;
+    for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+            const p = (y * cols + x) * 4;
+            const l = (0.299 * s[p] + 0.587 * s[p + 1] + 0.114 * s[p + 2]) / 255;
+            const k = Math.min(RAMP.length - 1, (l * RAMP.length) | 0);
+            if (k === 0) continue;
+            ctx.fillStyle = `hsla(${hue},90%,${40 + l * 45}%,${0.35 + a * 0.65})`;
+            ctx.fillText(RAMP[k], W - x * cw - cw, y * ch);
+        }
+    }
+    ctx.restore();
+}
+
+// 9) ECO: estelas de movimiento. a = persistencia, b = dirección del túnel (zoom/giro)
+const echo = document.createElement("canvas");
+echo.width = W; echo.height = H;
+const ectx = echo.getContext("2d");
+function eco(a, b) {
+    ctx.save();
+    ctx.globalAlpha = a * 0.9;
+    ctx.translate(W / 2, H / 2);
+    ctx.rotate((b - 0.5) * 0.05);
+    const sc = 1 + (b - 0.5) * 0.05;
+    ctx.scale(sc, sc);
+    ctx.drawImage(echo, -W / 2, -H / 2);
+    ctx.restore();
+    ectx.drawImage(canvasElement, 0, 0);
+}
+
+// 10) ONDAS: distorsión líquida. a = amplitud, b = frecuencia
+const tmp = document.createElement("canvas");
+tmp.width = W; tmp.height = H;
+const tctx = tmp.getContext("2d");
+function ondas(a, b, t) {
+    tctx.drawImage(canvasElement, 0, 0);
+    const amp = a * 30, freq = 0.015 + b * 0.05, step = 2;
+    for (let y = 0; y < H; y += step) {
+        const dx = Math.sin(y * freq + t * 0.004) * amp;
+        ctx.drawImage(tmp, 0, y, W, step, dx - amp, y, W + 2 * amp, step);
+    }
+    ctx.fillStyle = `rgba(0,170,255,${a * 0.14})`;
+    ctx.fillRect(0, 0, W, H);
+}
+
+// 11) CALEIDOSCOPIO: simetría radial. a = mezcla con la imagen, b = cantidad de segmentos
+const kcan = document.createElement("canvas");
+kcan.width = W; kcan.height = H;
+const kctx = kcan.getContext("2d");
+function caleidoscopio(a, b, t) {
+    tctx.drawImage(canvasElement, 0, 0);
+    const n = 4 + 2 * Math.round(b * 4), th = 2 * Math.PI / n;
+    const cx = W / 2, cy = H / 2, R = Math.hypot(W, H) / 2;
+    kctx.fillStyle = "#000";
+    kctx.fillRect(0, 0, W, H);
+    for (let k = 0; k < n; k++) {
+        kctx.save();
+        kctx.translate(cx, cy);
+        if (k % 2 === 0) kctx.rotate(k * th);
+        else { kctx.rotate((k + 1) * th); kctx.scale(1, -1); }
+        kctx.beginPath();
+        kctx.moveTo(0, 0); kctx.lineTo(R, 0); kctx.arc(0, 0, R, 0, th);
+        kctx.closePath(); kctx.clip();
+        kctx.rotate(t * 0.0003 * (0.3 + a));
+        kctx.scale(1.35, 1.35);
+        kctx.drawImage(tmp, -cx, -cy);
+        kctx.restore();
+    }
+    ctx.globalAlpha = a;
+    ctx.drawImage(kcan, 0, 0);
+    ctx.globalAlpha = 1;
+}
+const FILTERS = [
+    { name: "DUOTONO",       fn: duotono },
+    { name: "TV RETRO",      fn: tvRetro },
+    { name: "PIXELADO",      fn: pixelado },
+    { name: "GLITCH",        fn: glitch },
+    { name: "TÉRMICO",       fn: termico },
+    { name: "BORDES NEÓN",   fn: bordesNeon },
+    { name: "HALFTONE",      fn: halftone },
+    { name: "ASCII",         fn: ascii },
+    { name: "ECO",           fn: eco },
+    { name: "ONDAS",         fn: ondas },
+    { name: "CALEIDOSCOPIO", fn: caleidoscopio },
+];
+        
+
+        // ================= Música (sintetizada, sin archivos) =================
+        const MUSIC_FILE = "";      // opcional: "assets/musica.mp3" para usar tu propia canción en vez del sintetizador
+        const MUSIC_VOLUME = 0.5;
+
+        const midi = (m) => 440 * Math.pow(2, (m - 69) / 12);
+        const MAJ7 = [0, 4, 7, 11], MIN7 = [0, 3, 7, 10], DOM7 = [0, 4, 7, 10], MAJ = [0, 4, 7, 12], MIN = [0, 3, 7, 12];
+        // "x" = golpe fuerte, "o" = golpe suave
+        const P = (s) => [...s].map((c) => (c === "x" ? 1 : c === "o" ? 0.5 : 0));
+        const ARP_DREAM = [0,-1,2,-1,1,-1,3,-1,2,-1,1,-1,3,-1,2,1];
+        const ARP_CHIP  = [0,1,2,3,2,1,2,3,0,1,2,3,2,1,2,3];
+        const ARP_SPARSE= [0,-1,-1,2,-1,-1,1,-1,-1,3,-1,-1,2,-1,1,-1];
+        const ARP_NEON  = [0,-1,1,-1,2,-1,1,-1,0,-1,1,-1,3,-1,2,-1];
+
+        const MOODS = {
+            aero:   { bpm: 92,  lead: "triangle", bass: "sine",     pad: "triangle", cut: 2600, bassCut: 0,
+                      prog: [[0,MAJ7],[9,MIN7],[5,MAJ7],[7,DOM7]], arp: ARP_DREAM,
+                      kick: P("x.....x.x......."), snare: P("....o.......o..."), hat: P("o.o.o.o.o.o.o.o."), bassPat: P("x.....x.x.......") },
+            chill:  { bpm: 104, lead: "sine",     bass: "sine",     pad: "triangle", cut: 2200, bassCut: 0,
+                      prog: [[5,MAJ7],[2,MIN7],[7,DOM7],[0,MAJ7]], arp: ARP_DREAM,
+                      kick: P("x.......x..x...."), snare: P("....x.......x..."), hat: P("..o...o...o...o."), bassPat: P("x.....x...x.....") },
+            chip:   { bpm: 128, lead: "square",   bass: "square",   pad: "triangle", cut: 3500, bassCut: 900,
+                      prog: [[0,MAJ],[7,MAJ],[9,MIN],[5,MAJ]], arp: ARP_CHIP,
+                      kick: P("x...x...x...x..."), snare: P("....x.......x..."), hat: P("o.o.o.o.o.o.o.o."), bassPat: P("x.x.x.x.x.x.x.x.") },
+            glitch: { bpm: 140, lead: "sawtooth", bass: "sawtooth", pad: "square",   cut: 1800, bassCut: 500, rnd: true,
+                      prog: [[9,MIN],[4,MIN],[5,MAJ],[4,MIN]], arp: ARP_CHIP,
+                      kick: P("x..x..x.x..x..x."), snare: P("....x.......x..x"), hat: P("xoxoxoxoxoxoxoxo"), bassPat: P("x.xx.x.xx.xx.x.x") },
+            term:   { bpm: 84,  lead: "sine",     bass: "triangle", pad: "sine",     cut: 1500, bassCut: 0,
+                      prog: [[2,MIN7],[7,DOM7],[9,MIN7],[4,MIN7]], arp: ARP_SPARSE,
+                      kick: P("x.......x......."), snare: P("................"), hat: P("......o.......o."), bassPat: P("x.......x.......") },
+            neon:   { bpm: 108, lead: "sawtooth", bass: "sawtooth", pad: "sawtooth", cut: 1400, bassCut: 600,
+                      prog: [[9,MIN],[5,MAJ],[0,MAJ],[7,MAJ]], arp: ARP_NEON,
+                      kick: P("x...x...x...x..."), snare: P("....x.......x..."), hat: P("..o...o...o...o."), bassPat: P("x.x.x.x.x.x.x.x.") },
+        };
+        // qué "ánimo" suena con cada filtro (mismo orden que FILTERS)
+        const MOOD_OF = ["aero", "chill", "chip", "glitch", "chill", "neon", "chip", "term", "aero", "chill", "neon"];
+
+        let actx = null, master = null, fxIn = null, noiseBuf = null, audioEl = null;
+        let musicOn = true, timer = null, nextT = 0, step = 0;
+        let mood = MOODS.aero, pendingMood = null;
+
+        function musicTheme(i) { const m = MOODS[MOOD_OF[i]] || MOODS.aero; pendingMood = (m !== mood) ? m : null; }
+
+        function tone(t, f, dur, type, vol, o = {}) {
+            const osc = actx.createOscillator();
+            osc.type = type; osc.frequency.setValueAtTime(f, t);
+            let node = osc;
+            if (o.cut) { const lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = o.cut; osc.connect(lp); node = lp; }
+            const g = actx.createGain(), atk = o.atk || 0.01;
+            g.gain.setValueAtTime(0.0001, t);
+            g.gain.linearRampToValueAtTime(vol, t + atk);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(dur, atk + 0.02));
+            node.connect(g); g.connect(master);
+            if (o.fx) { const s = actx.createGain(); s.gain.value = o.fx; g.connect(s); s.connect(fxIn); }
+            osc.start(t); osc.stop(t + dur + 0.1);
+        }
+        function noise(t, dur, vol, ftype, freq) {
+            const src = actx.createBufferSource(); src.buffer = noiseBuf;
+            const f = actx.createBiquadFilter(); f.type = ftype; f.frequency.value = freq;
+            const g = actx.createGain();
+            g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+            src.connect(f); f.connect(g); g.connect(master);
+            src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.05);
+        }
+        function kick(t) {
+            const o = actx.createOscillator(), g = actx.createGain();
+            o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+            g.gain.setValueAtTime(0.9, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
+            o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.3);
+        }
+        const snare = (t, v) => { noise(t, 0.15, 0.3 * v, "bandpass", 1800); tone(t, 190, 0.1, "triangle", 0.15 * v); };
+        const hat = (t, v) => noise(t, 0.04, 0.1 * v, "highpass", 7500);
+
+        function playStep(s, t) {
+            const m = mood, k = s % 16, sd = 60 / m.bpm / 4;
+            const ch = m.prog[Math.floor(s / 16) % m.prog.length], root = ch[0], iv = ch[1];
+            if (m.kick[k]) kick(t);
+            if (m.snare[k]) snare(t, m.snare[k]);
+            if (m.hat[k]) hat(t, m.hat[k]);
+            if (m.bassPat[k]) tone(t, midi(36 + root), sd * 1.8, m.bass, 0.25, { cut: m.bassCut });
+            if (k === 0) iv.forEach((i) => tone(t, midi(52 + root + i), sd * 15, m.pad, 0.04, { atk: 0.5, cut: m.cut, fx: 0.4 }));
+            const idx = m.arp[k];
+            if (idx >= 0 && !(m.rnd && Math.random() < 0.15)) {
+                let n = 72 + root + iv[idx % iv.length];
+                if (m.rnd && Math.random() < 0.3) n += 12;
+                tone(t, midi(n), sd * 1.6, m.lead, 0.07, { cut: m.cut, fx: 0.35 });
+            }
+        }
+
+        function schedule() {
+            while (nextT < actx.currentTime + 0.15) {
+                if (step % 16 === 0 && pendingMood) { mood = pendingMood; pendingMood = null; step = 0; }
+                playStep(step, nextT);
+                nextT += 60 / mood.bpm / 4;
+                step++;
+            }
+        }
+
+        // efectos de sonido de la interfaz
+        function sfx(kind) {
+            if (!actx || !musicOn) return;
+            const t = actx.currentTime + 0.005;
+            if (kind === "tick") tone(t, 1500, 0.05, "square", 0.04);
+            else if (kind === "pick") [72, 76, 79, 84].forEach((n, i) => tone(t + i * 0.06, midi(n), 0.2, "square", 0.08, { fx: 0.3 }));
+            else if (kind === "open") [60, 67, 72, 79].forEach((n, i) => tone(t + i * 0.05, midi(n), 0.25, "triangle", 0.12, { fx: 0.4 }));
+            else if (kind === "close") [79, 72, 67, 60].forEach((n, i) => tone(t + i * 0.05, midi(n), 0.25, "triangle", 0.1, { fx: 0.4 }));
+        }
+
+        const musicBtn = document.getElementById("music");
+        function musicLabel() { musicBtn.textContent = !actx ? "🎵 Activar música" : musicOn ? "🔊 Música" : "🔇 Música"; }
+
+        function startAudio() {
+            if (!actx) {
+                actx = new (window.AudioContext || window.webkitAudioContext)();
+                const comp = actx.createDynamicsCompressor();
+                master = actx.createGain(); master.gain.value = MUSIC_VOLUME;
+                master.connect(comp); comp.connect(actx.destination);
+                // eco / reverb simple
+                fxIn = actx.createGain();
+                const dly = actx.createDelay(1); dly.delayTime.value = 0.32;
+                const fb = actx.createGain(); fb.gain.value = 0.38;
+                const lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2500;
+                const wet = actx.createGain(); wet.gain.value = 0.35;
+                fxIn.connect(dly); dly.connect(lp); lp.connect(fb); fb.connect(dly); lp.connect(wet); wet.connect(master);
+                noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
+                const d = noiseBuf.getChannelData(0);
+                for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+            }
+            actx.resume();
+            musicOn = true;
+            master.gain.setTargetAtTime(MUSIC_VOLUME, actx.currentTime, 0.05);
+            if (MUSIC_FILE) {
+                if (!audioEl) {
+                    audioEl = new Audio(MUSIC_FILE); audioEl.loop = true;
+                    actx.createMediaElementSource(audioEl).connect(master);
+                }
+                audioEl.play();
+            } else if (!timer) {
+                if (pendingMood) { mood = pendingMood; pendingMood = null; }
+                nextT = actx.currentTime + 0.1; step = 0;
+                timer = setInterval(schedule, 25);
+            }
+            musicLabel();
+        }
+        function toggleMusic() {
+            if (!actx) { startAudio(); return; }
+            musicOn = !musicOn;
+            master.gain.setTargetAtTime(musicOn ? MUSIC_VOLUME : 0, actx.currentTime, 0.05);
+            musicLabel();
+        }
+        musicBtn.addEventListener("click", toggleMusic);
+        // el navegador exige un clic o tecla para poder sonar: el primero que hagas la activa
+        window.addEventListener("pointerdown", (e) => { if (!actx && !e.target.closest("#music")) startAudio(); });
+        window.addEventListener("keydown", (e) => { if (e.key === "m" || e.key === "M") toggleMusic(); else if (!actx) startAudio(); });
+        musicLabel();
+
+        // ================= Gestos =================
+        // Mano abierta: altura = intensidad | inclinación = parámetro 2
+        // Puño cerrado: pasa al siguiente filtro
+        let filterIdx = 0;
+        let intensity = 0.6, tweak = 0.5;       // valores suavizados
+        let tIntensity = 0.6, tTweak = 0.5;     // objetivos
+        let wasFist = false, fistFrames = 0, lastSwitch = 0, flash = 0;
+        let freezeWas = false;          // ¿estaba congelado el cuadro anterior?
+        const paramHist = [];           // historial reciente de intensidad/inclinación, para deshacer el movimiento de armar la V
+
+        function fistRatio(lm) {
+            const palm = dist(lm[0], lm[9]);
+            const tips = [8, 12, 16, 20];
+            return tips.reduce((s, i) => s + dist(lm[i], lm[0]), 0) / tips.length / palm;
+        }
+
+
+function readGestures(hands, now) {
+    // photo.js activa esta bandera mientras sostenés la V y durante la cuenta regresiva
+    const frozen = !!window.__freezeFilter;
+
+    let anyFist = false, active = null;
+    for (const lm of hands) {
+        const isFist = fistRatio(lm) < (fistFrames > 0 ? 1.5 : 1.25); // histéresis
+        if (isFist) anyFist = true; else if (!active) active = lm;
+    }
+    fistFrames = anyFist ? fistFrames + 1 : 0;
+
+    // el puño tiene que sostenerse 3 cuadros seguidos (~0,1 s); con el filtro congelado no cambia de filtro
+    if (anyFist && fistFrames >= 3 && !wasFist && !frozen && now - lastSwitch > 600) {
+        filterIdx = (filterIdx + 1) % FILTERS.length;
+        lastSwitch = now;
+        flash = 0.6;
+        applyTheme(filterIdx);
+        sfx("pick");
+        wasFist = true;   // bloqueado hasta que abras la mano
+    }
+    if (!anyFist) wasFist = false;
+
+    // al empezar el congelado, volver a los valores de hace ~0,4 s: así se descarta
+    // lo que la mano movió mientras armabas la V
+    if (frozen && !freezeWas) {
+        const ref = paramHist.find((h) => now - h.t <= 400);
+        if (ref) { tIntensity = ref.i; tTweak = ref.w; }
+    }
+    freezeWas = frozen;
+
+    if (active && !anyFist && !frozen) {
+        // altura de la mano: arriba = 1, abajo = 0
+        tIntensity = clamp((0.8 - active[9].y) / 0.6);
+        // inclinación: positivo = hacia tu derecha (sentido horario)
+        const dx = (active[9].x - active[0].x) * W, dy = (active[9].y - active[0].y) * H;
+        const angle = Math.atan2(-dx, -dy);
+        tTweak = clamp(0.5 + angle / (2 * 1.22)); // ±70° recorre todo el rango
+    }
+    if (!frozen) {
+        paramHist.push({ t: now, i: tIntensity, w: tTweak });
+        while (paramHist.length && now - paramHist[0].t > 800) paramHist.shift();
+    }
+    intensity += (tIntensity - intensity) * 0.2;
+    tweak += (tTweak - tweak) * 0.2;
+}
+        // ================= Marcos y stickers Y2K =================
+const THEMES = [
+    { cls: "f-aero",  body: "bg-aero",  title: "Duotono",            menu: [],
+      stickers: { bubble: 3, star: 2, orb: 2, music: 2, cursor: 1, fish: 1 } },
+    { cls: "f-xp",    body: "bg-xp",    title: "TV Retro",           menu: ["Archivo", "Edición", "Ver", "Ayuda"],
+      stickers: { error: 1, ie: 2, folder: 2, monitor: 1, cursor: 2, bubble: 1, star: 1, winrar: 1, bin: 1 } },
+    { cls: "f-paint", body: "bg-paint", title: "sin título - Paint", menu: ["Archivo", "Edición", "Ver", "Imagen", "Opciones", "Ayuda"],
+      stickers: { star: 2, cursor: 2, folder: 2, monitor: 2, error: 1, music: 1, winrar: 1, bin: 1 } },
+    { cls: "f-error", body: "bg-error", title: "Critical Error",     menu: [],
+      stickers: { error: 3, cursor: 2, ie: 1, star: 1, orb: 1, monitor: 1, bubble: 1, winrar: 1 } },
+    { cls: "f-xp",    body: "bg-heat",  title: "Cámara térmica",     menu: ["Archivo", "Ver", "Ayuda"],
+      stickers: { error: 1, monitor: 1, ie: 1, cursor: 2, folder: 1, star: 1, bin: 1, winrar: 1 } },
+    { cls: "f-media", body: "bg-night", title: "Bordes neón",        menu: ["Reproducir", "Ver", "Herramientas"],
+      stickers: { orb: 2, music: 2, star: 2, cursor: 1, monitor: 1, fish: 1 } },
+    { cls: "f-paint", body: "bg-pop",   title: "halftone.bmp - Paint", menu: ["Archivo", "Edición", "Ver", "Imagen"],
+      stickers: { folder: 2, cursor: 2, star: 1, error: 1, ie: 1, bubble: 1, bin: 1, winrar: 1 } },
+    { cls: "f-term",  body: "bg-term",  title: "C:\\WINDOWS\\system32\\cmd.exe", menu: [],
+      stickers: { cursor: 2, error: 1, monitor: 2, ie: 1, folder: 1, bin: 1, winrar: 1 } },
+    { cls: "f-aero",  body: "bg-dusk",  title: "Eco",                menu: [],
+      stickers: { bubble: 3, star: 2, music: 1, orb: 1, cursor: 1, fish: 2 } },
+    { cls: "f-xp",    body: "bg-water", title: "Ondas",              menu: ["Archivo", "Edición", "Ver", "Ayuda"],
+      stickers: { bubble: 3, ie: 1, orb: 1, monitor: 1, star: 1, cursor: 1, fish: 2, bin: 1 } },
+    { cls: "f-media", body: "bg-lime",  title: "Caleidoscopio",      menu: ["Reproducir", "Ver", "Herramientas"],
+      stickers: { star: 3, bubble: 2, orb: 2, music: 1, cursor: 1, fish: 1 } },
+];
+
+// posiciones (% dentro de la zona de stickers, que rodea al marco)
+const SLOTS = [[6,10],[94,8],[50,3],[97,45],[3,50],[8,90],[93,92],[50,97],[22,3],[78,97],[3,28],[97,72],[16,18],[84,82]];
+
+const frameEl = document.getElementById("frame");
+const titleEl = document.getElementById("title");
+const menuEl = document.getElementById("menubar");
+const statusEl = document.getElementById("status");
+const paletteEl = document.getElementById("palette");
+const stickersEl = document.getElementById("stickers");
+
+["#000","#808080","#800000","#808000","#008000","#008080","#000080","#800080","#808040","#004040","#0080ff","#004080","#8000ff","#804000",
+ "#fff","#c0c0c0","#f00","#ff0","#0f0","#0ff","#00f","#f0f","#ffff80","#00ff80","#80ffff","#8080ff","#ff0080","#ff8040"]
+    .forEach(c => { const i = document.createElement("i"); i.style.background = c; paletteEl.appendChild(i); });
+
+const STICKER_DEF = {
+    bubble:  { files: 4, sizes: [150, 100, 70, 120] },
+    star:    { files: 4, sizes: [120, 90, 70, 100] },
+    error:   { files: 4, sizes: [230, 170, 130] },
+    folder:  { files: 4, sizes: [90, 70, 110],     px: true },
+    music:   { files: 4, sizes: [70, 55, 85] },
+    ie:      { files: 4, sizes: [90, 65, 110],     px: true },
+    cursor:  { files: 4, sizes: [48, 36, 60, 40],  px: true },
+    orb:     { files: 4, sizes: [80, 60, 100] },
+    monitor: { files: 4, sizes: [80, 100, 60],     px: true },
+    winrar: { files: 4, sizes: [90, 70, 110] },
+bin:    { files: 4, sizes: [80, 100] },
+fish:   { files: 4, sizes: [140, 100, 80] },
+};
+
+const rand = (a, b) => a + Math.random() * (b - a);
+function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+}
+
+const stickers = [];
+for (const [type, def] of Object.entries(STICKER_DEF)) {
+    for (let n = 0; n < def.files; n++) new Image().src = `assets/${type}-${n}.png`; // precarga
+    def.sizes.forEach((w, idx) => {
+        const el = document.createElement("div");
+        el.className = "sticker";
+        el.style.width = w + "px";
+        const img = document.createElement("img");
+        img.src = `assets/${type}-${idx % def.files}.png`;
+        if (def.px) img.className = "px";
+        img.style.animationDelay = (-Math.random() * 5) + "s";
+        img.style.animationDuration = (4 + Math.random() * 3) + "s";
+        el.appendChild(img);
+        stickersEl.appendChild(el);
+        stickers.push({ type, idx, el, img, def, scale: 1, on: false, slot: -1 });
+    });
+}
+
+function placeSticker(s, slot, reroll = false) {
+    s.slot = slot;
+    if (reroll) { // nuevo tono y tamaño en cada cambio de filtro
+        s.img.src = `assets/${s.type}-${Math.floor(Math.random() * s.def.files)}.png`;
+        s.scale = rand(0.8, 1.25);
+    }
+    const [x, y] = SLOTS[slot];
+    s.el.style.left = x + "%";
+    s.el.style.top = y + "%";
+    s.el.style.transform = `translate(-50%,-50%) rotate(${rand(-25, 25).toFixed(1)}deg) scale(${s.scale.toFixed(2)})`;
+    s.el.style.opacity = 1;
+}
+
+function layoutStickers(th) {
+    const order = shuffle(SLOTS.map((_, i) => i));
+    let k = 0;
+    for (const s of stickers) {
+        s.on = s.idx < (th.stickers[s.type] || 0);
+        if (s.on) placeSticker(s, order[k++], true);
+        else { s.slot = -1; s.el.style.opacity = 0; s.el.style.transform = "translate(-50%,-50%) scale(.2)"; }
+    }
+}
+
+// de a poco, un sticker salta a otro lugar libre
+setInterval(() => {
+    const on = stickers.filter(s => s.on);
+    if (!on.length) return;
+    const s = on[Math.floor(Math.random() * on.length)];
+    const used = new Set(on.map(o => o.slot));
+    const free = SLOTS.map((_, i) => i).filter(i => !used.has(i));
+    if (free.length) placeSticker(s, free[Math.floor(Math.random() * free.length)]);
+}, 3500);
+
+function applyTheme(i, animate = true) {
+    const th = THEMES[i];
+    frameEl.className = th.cls;
+    document.body.className = th.body;
+    titleEl.textContent = th.title;
+    menuEl.innerHTML = th.menu.map(m => `<span>${m}</span>`).join("");
+    layoutStickers(th);
+    musicTheme(i);
+    if (animate) { void frameEl.offsetWidth; frameEl.classList.add("pop"); }
+}
+applyTheme(0, false);
+
+function setStatus(t) { if (statusEl.textContent !== t) statusEl.textContent = t; }
+
+// ================= Galería de filtros =================
+// Abrir / cerrar: las dos manos abiertas frente a la cámara, ~0,8 s.
+// Elegir: mové el cursor (entre el pulgar y el índice) sobre un filtro y pellizcá,
+const galleryEl = document.getElementById("gallery");
+const ggrid = document.getElementById("ggrid");
+const gcursor = document.getElementById("gcursor");
+const holdEl = document.getElementById("hold");
+const holdText = document.getElementById("holdtext");
+const holdFill = document.getElementById("holdfill");
+
+const THUMB_W = 160, THUMB_H = 120;
+const HOLD_MS = 800;
+const gcards = [], gthumbs = [];
+
+FILTERS.forEach((f) => {
+    const card = document.createElement("div");
+    card.className = "gcard";
+    const cv = document.createElement("canvas");
+    cv.width = THUMB_W; cv.height = THUMB_H;
+    const name = document.createElement("span"); name.className = "gname"; name.textContent = f.name;
+    const badge = document.createElement("span"); badge.className = "gbadge"; badge.textContent = "EN USO";
+    card.append(cv, name, badge);
+    ggrid.appendChild(card);
+    gcards.push(card);
+    gthumbs.push(cv.getContext("2d"));
+});
+const closeCard = document.createElement("div");
+closeCard.className = "gcard gclose";
+closeCard.innerHTML = "<div><span>✕</span>CERRAR</div>";
+ggrid.appendChild(closeCard);
+gcards.push(closeCard);
+ggrid.style.gridTemplateRows = `repeat(${Math.ceil(gcards.length / 4)}, 1fr)`;
+
+const gallery = { open: false, armed: true, holdStart: 0, cooldownUntil: 0,
+                  frames: 0, rr: 0, cx: W / 2, cy: H / 2, hover: -1, wasPinch: false, guardUntil: 0, nHands: 0 };
+
+const pinchRatio = (lm) => dist(lm[4], lm[8]) / dist(lm[0], lm[9]);
+const isPinching = (lm, on) => pinchRatio(lm) < (on ? 0.45 : 0.3) && fistRatio(lm) > 1.35;
+const isOpenHand = (lm) => fistRatio(lm) > 1.65 && pinchRatio(lm) > 0.5;
+
+function setGallery(open, now, sound = open ? "open" : "close") {
+    sfx(sound);
+    gallery.open = open;
+    galleryEl.classList.toggle("open", open);
+    gallery.hover = -1; gallery.frames = 0; gallery.guardUntil = now + 600; gallery.nHands = 2;
+    gallery.wasPinch = true;            // hay que soltar el pellizco antes de poder elegir
+    gallery.cooldownUntil = now + 1000;
+    gcursor.style.opacity = 0;
+    if (open) gcards.forEach((c, i) => { c.classList.toggle("cur", i === filterIdx); c.classList.remove("hover"); });
+    else { wasFist = true; lastSwitch = now; }   // evita que el puño cambie de filtro al volver
+}
+
+function chooseCard(i, now) {
+    if (i < FILTERS.length) { filterIdx = i; flash = 0.6; applyTheme(i); }
+    setGallery(false, now, i < FILTERS.length ? "pick" : "close");
+}
+
+// dos manos abiertas sostenidas -> abre / cierra
+function trackToggle(hands, now) {
+    const both = hands.length === 2 && hands.every(isOpenHand);
+    let progress = 0;
+    if (both && gallery.armed && now > gallery.cooldownUntil) {
+        if (!gallery.holdStart) gallery.holdStart = now;
+        progress = (now - gallery.holdStart) / HOLD_MS;
+        if (progress >= 1) {
+            setGallery(!gallery.open, now);
+            gallery.armed = false; gallery.holdStart = 0; progress = 0;
+        }
+    } else {
+        gallery.holdStart = 0;
+        if (!both) gallery.armed = true;   // hay que bajar una mano para volver a disparar
+    }
+    holdEl.classList.toggle("on", progress > 0.08);
+    if (progress > 0) {
+        holdText.textContent = gallery.open ? "Cerrando galería…" : "Abriendo galería…";
+        holdFill.style.width = (progress * 100).toFixed(0) + "%";
+    }
+}
+
+function runGallery(hands, now) {
+    // miniaturas en vivo: una por cuadro al abrir, después una cada 3 cuadros
+    if (gallery.frames < FILTERS.length || gallery.frames % 3 === 0) {
+        const k = gallery.rr++ % FILTERS.length;
+        FILTERS[k].fn(0.8, 0.5, now);
+        gthumbs[k].drawImage(canvasElement, 0, 0, THUMB_W, THUMB_H);
+        ctx.drawImage(video, 0, 0, W, H);   // el fondo vuelve a ser el video limpio
+    }
+    gallery.frames++;
+
+    // si cambia la cantidad de manos (por ejemplo al bajar una), se ignora todo pellizco un instante
+    if (hands.length !== gallery.nHands) { gallery.nHands = hands.length; gallery.guardUntil = now + 600; gallery.wasPinch = true; }
+    const guarded = now < gallery.guardUntil;
+
+    // cursor: punto medio entre pulgar e índice (de la mano que pellizca, o la primera)
+    const hand = hands.find((h) => isPinching(h, false)) || hands[0];
+    let pinch = false;
+    if (hand) {
+        const mx = (hand[4].x + hand[8].x) / 2, my = (hand[4].y + hand[8].y) / 2;
+        gallery.cx += ((1 - mx) * W - gallery.cx) * 0.35;   // (1 - x): el video se ve en espejo
+        gallery.cy += (my * H - gallery.cy) * 0.35;
+        pinch = isPinching(hand, gallery.wasPinch);   // histéresis
+    }
+
+    // qué tarjeta está debajo del cursor
+    let hover = -1;
+    if (hand) {
+        for (let i = 0; i < gcards.length; i++) {
+            const c = gcards[i];
+            const x = ggrid.offsetLeft + c.offsetLeft, y = ggrid.offsetTop + c.offsetTop;
+            if (gallery.cx >= x && gallery.cx <= x + c.offsetWidth && gallery.cy >= y && gallery.cy <= y + c.offsetHeight) { hover = i; break; }
+        }
+    }
+    if (hover !== gallery.hover) {
+        if (hover >= 0) sfx("tick");
+        if (gallery.hover >= 0) gcards[gallery.hover].classList.remove("hover");
+        if (hover >= 0) gcards[hover].classList.add("hover");
+    }
+
+    gallery.hover = hover;
+
+    // elegir: solo con pellizco (flanco de subida)
+    if (hand && pinch && !gallery.wasPinch && !guarded && hover >= 0) {
+        chooseCard(hover, now);
+        return;
+    }
+    gallery.wasPinch = !!hand && pinch;
+
+    // dibujar cursor
+    gcursor.style.opacity = hand ? 1 : 0;
+    gcursor.style.left = gallery.cx + "px";
+    gcursor.style.top = gallery.cy + "px";
+    gcursor.classList.toggle("pinch", pinch);
+}
+
+        // ================= Bucle principal =================
+        let lastVideoTime = -1;
+        async function predictWebcam() {
+            requestAnimationFrame(predictWebcam);
+            if (handLandmarker) {
+                if (video.currentTime !== lastVideoTime) {
+                    lastVideoTime = video.currentTime;
+                    const now = performance.now();
+                    const results = handLandmarker.detectForVideo(video, now);
+                    const hands = results.landmarks || [];
+                    window.__hands = hands; window.__handsT = now;
+
+                    ctx.drawImage(video, 0, 0, W, H);
+                    trackToggle(hands, now);
+                    if (gallery.open) {
+                        runGallery(hands, now);
+                    } else {
+                        readGestures(hands, now);
+                        FILTERS[filterIdx].fn(intensity, tweak, now);
+                    }
+
+                    if (flash > 0.01) {
+                        ctx.fillStyle = `rgba(255,255,255,${flash})`;
+                        ctx.fillRect(0, 0, W, H);
+                        flash *= 0.75;
+                    }
+
+infoDiv.style.display = "none";
+setStatus(gallery.open ? "GALERÍA · pellizcá un filtro para elegirlo"
+    : hands.length ? `FILTRO · ${FILTERS[filterIdx].name} · dos manos = galería`
+    : "Muestra tu mano a la cámara...");
+                }
+            }
+        }
+
+        createHandLandmarker();
+
+        (function () {
+    "use strict";
+
+    const stage = document.getElementById("stage");
+    if (!stage) return;
+
+    // ---------- Ajustes rápidos ----------
+    const OPACITY = 0.88;          // 0 a 1: qué tan opacas son las ventanas
+    const MAX_LINES = 5;           // mensajes visibles por ventana
+    const DING = true;             // sonidito al entrar un mensaje (solo si la música está activada)
+
+    // tema (clase del body) -> estilo de ventana
+    const STYLE_OF = {
+        "bg-aero": "aero", "bg-dusk": "aero",
+        "bg-xp": "xp", "bg-water": "xp", "bg-heat": "xp",
+        "bg-paint": "w98", "bg-pop": "w98",
+        "bg-error": "err",
+        "bg-term": "term",
+        "bg-night": "dark", "bg-lime": "dark",
+    };
+
+    // ---------- Contenido ----------
+    const NICKS = ["xX_Sofi_Xx", "~*Nico*~", "Maru ★ ausente", "el_javi_01", "lau_93", "★DjMati★", "Flor♥", "Tomi (ocupado)", "~Cami~", "Fede_rock", "Vale ♪ música", "Agus_xD"];
+    const ME = ["shiann", "Yo ♥", "Shianluu"];
+    const IM = [
+        "hola!! q hacés?", "k lindo ser multimedia", "pasame tu fotolog", "estás ahí??", "mandame el link x mail",
+        "subí fotos nuevas :D", "q linda la cam!! (L)", "bajé un tema nuevo, te lo paso", "ni idea de la tarea jaja",
+        "me conecto a la noche ;)", "te veo en el cyber", "apagá la compu q viene mamá", "se me colgó la pc otra vez",
+        "jaja dale dale", "buenísimooo", "brb", "kiss ^_^", "bss", "xq? :(", "tqm <3", "jajaja lol", "ya viste el video?",
+        "ponete un estado piola", "quién tiene el cd del trabajo?", "te dejé un comentario", "en 5 me desconecto",
+        "contestame!!", "xD xD xD", "nooo k decis", "me pasás la letra?", "q hacés despierto a esta hora??", "jaja sos un loco",
+    ];
+    const IRC = [
+        "hola a todos", "asl?", "alguien sabe de html?", "jajaja", "q música escuchan?", "estoy bajando un tema",
+        "me lagueo", "ping timeout?", "brb café", "buenas", "este canal está muerto", "quién juega online?",
+        "alguien tiene msn?", "re lento el dial-up hoy", "ya vuelvo, me llaman a comer",
+    ];
+    const IRC_SYS = ["se unió al canal", "salió (Quit: bye)", "cambió su nick", "se desconectó (Ping timeout)"];
+    const ERR_SYS = [
+        "Se perdió la conexión con el servidor.", "Reintentando conexión… (2/3)", "No se pudo enviar el mensaje.",
+        "Error 0x80040154: contacto no disponible.", "El mensaje no pudo ser entregado.", "Tiempo de espera agotado.",
+    ];
+
+    // ---------- Posiciones (% dentro de la zona que rodea al marco) ----------
+    const SIDE_SLOTS = [[0, 4], [0, 50], [76, 6], [76, 52]];      // costados, asomando detrás del marco
+    const EDGE_SLOTS = [[26, -1], [38, 84]];                       // arriba y abajo (solo en pantallas altas)
+
+    // ---------- CSS ----------
+    const css = `
+#chats { position: absolute; inset: -150px; z-index: 1; pointer-events: none; font-family: Tahoma, Verdana, sans-serif; font-size: 12px; line-height: 1.3; color: #000; }
+.cw { position: absolute; opacity: ${OPACITY}; transform: rotate(var(--r, 0deg)); box-shadow: 0 8px 22px rgba(0,0,0,.35); }
+.cw.in   { animation: cwIn .5s cubic-bezier(.2,1.4,.4,1) both; }
+.cw.buzz { animation: cwBuzz .45s linear; }
+@keyframes cwIn   { from { opacity: 0; transform: translateY(16px) scale(.85) rotate(var(--r, 0deg)); } to { opacity: ${OPACITY}; transform: rotate(var(--r, 0deg)); } }
+@keyframes cwBuzz { 0%,100% { transform: rotate(var(--r,0deg)) translate(0,0); } 15% { transform: rotate(var(--r,0deg)) translate(-6px,3px); } 30% { transform: rotate(var(--r,0deg)) translate(6px,-3px); }
+                    45% { transform: rotate(var(--r,0deg)) translate(-5px,-2px); } 60% { transform: rotate(var(--r,0deg)) translate(5px,3px); } 80% { transform: rotate(var(--r,0deg)) translate(-3px,1px); } }
+.cw .tb { display: flex; align-items: center; gap: 5px; height: 24px; padding: 0 5px 0 7px; font-weight: bold; color: #fff; }
+.cw .ti { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cw .ic { width: 12px; height: 12px; border-radius: 50%; flex: none; background: radial-gradient(circle at 35% 30%, #e6ffd0, #5fd13a 55%, #1f6d10); }
+.cw .bt { display: flex; gap: 2px; flex: none; }
+.cw .bt i { display: grid; place-items: center; width: 16px; height: 15px; font-style: normal; font-size: 9px; border-radius: 3px; border: 1px solid #fff; color: #fff; background: linear-gradient(135deg, #5b95ff, #1a50d8); }
+.cw .bt i:last-child { background: linear-gradient(135deg, #f0866b, #c8381c); }
+.cw .cb { height: 98px; padding: 5px 7px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; background: #fff; }
+.cw .m { word-break: break-word; }
+.cw .m b { color: #1a50d8; }
+.cw .m.o b { color: #c0185b; }
+.cw .m.s { color: #777; font-style: italic; font-size: 11px; }
+.cw .cf { height: 18px; padding: 2px 7px; font-size: 11px; font-style: italic; color: #555; background: #ece9d8; border-top: 1px solid #aca899; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Frutiger Aero: vidrio */
+.cw-aero { border-radius: 10px; border: 1px solid rgba(255,255,255,.9); background: linear-gradient(180deg, rgba(255,255,255,.7), rgba(120,210,255,.5)); box-shadow: 0 8px 24px rgba(0,60,120,.4), inset 0 0 14px rgba(255,255,255,.7); }
+.cw-aero .tb { color: #0b3556; text-shadow: 0 0 6px #fff; background: linear-gradient(180deg, rgba(255,255,255,.7) 0 50%, rgba(255,255,255,.15) 50% 100%); border-radius: 9px 9px 0 0; }
+.cw-aero .bt i { width: 20px; height: 14px; border-radius: 0 0 5px 5px; border-color: #3b6a94; color: #123; background: linear-gradient(#e8f4ff, #9cc7ea 50%, #6fa9d6 50%, #a6d3f2); }
+.cw-aero .bt i:last-child { color: #fff; background: linear-gradient(#f5b3a8, #e0533a 50%, #c4311a 50%, #ee7a62); }
+.cw-aero .cb { margin: 0 6px; background: rgba(255,255,255,.82); border: 1px solid rgba(0,60,120,.35); }
+.cw-aero .cf { background: transparent; border: 0; color: #0b3556; }
+
+/* Windows XP */
+.cw-xp { background: #0831d9; padding: 0 3px 3px; border-radius: 8px 8px 2px 2px; }
+.cw-xp .tb { margin: 0 -3px; border-radius: 7px 7px 0 0; text-shadow: 1px 1px #0f1089; background: linear-gradient(180deg, #0997ff 0%, #0053ee 10%, #0050ee 50%, #0066ff 88%, #0050ee 100%); }
+
+/* Windows 98 */
+.cw-w98 { background: #c0c0c0; padding: 2px; border: 2px solid; border-color: #fff #404040 #404040 #fff; box-shadow: 1px 1px 0 #000, 0 8px 20px rgba(0,0,0,.4); }
+.cw-w98 .tb { height: 20px; margin-bottom: 2px; background: linear-gradient(90deg, #000080, #1084d0); }
+.cw-w98 .ic { border-radius: 0; background: #ffff00; }
+.cw-w98 .bt i { width: 14px; height: 12px; border-radius: 0; color: #000; background: #c0c0c0; border: 2px solid; border-color: #fff #404040 #404040 #fff; }
+.cw-w98 .bt i:last-child { background: #c0c0c0; }
+.cw-w98 .cb { border: 2px solid; border-color: #808080 #fff #fff #808080; }
+.cw-w98 .cf { background: #c0c0c0; border: 0; }
+
+/* Diálogo de error */
+.cw-err { background: #7a0000; padding: 0 3px 3px; border-radius: 8px 8px 2px 2px; }
+.cw-err .tb { margin: 0 -3px; border-radius: 7px 7px 0 0; text-shadow: 1px 1px #500; background: linear-gradient(180deg, #ff6a5a 0%, #d42a1a 12%, #c01c0e 50%, #e03a2a 90%, #b01208 100%); }
+.cw-err .ic { background: radial-gradient(circle at 35% 30%, #fff, #ff6a5a 50%, #a00); }
+.cw-err .m.e { color: #c00; font-weight: bold; }
+
+/* Consola / IRC */
+.cw-term { background: #c0c0c0; padding: 2px; border: 2px solid; border-color: #fff #404040 #404040 #fff; box-shadow: 0 8px 24px rgba(0,0,0,.6), 0 0 26px rgba(0,255,100,.15); }
+.cw-term .tb { height: 20px; margin-bottom: 2px; background: linear-gradient(90deg, #404040, #808080); }
+.cw-term .ic { border-radius: 0; background: #33ff66; }
+.cw-term .bt i { width: 14px; height: 12px; border-radius: 0; color: #000; background: #c0c0c0; border: 2px solid; border-color: #fff #404040 #404040 #fff; }
+.cw-term .cb { background: #000; font-family: 'Courier New', monospace; font-size: 11px; color: #33ff66; }
+.cw-term .m b, .cw-term .m.o b { color: #8cffb0; }
+.cw-term .m.s { color: #1fa84a; font-style: normal; }
+.cw-term .cf { background: #000; color: #1fa84a; font-family: 'Courier New', monospace; border-top: 0; }
+
+/* Reproductor oscuro */
+.cw-dark { padding: 0 5px 5px; border-radius: 10px; background: linear-gradient(180deg, #1b2a4a, #070d1c); border: 1px solid #5f7fbf; box-shadow: 0 10px 30px rgba(0,0,0,.6), 0 0 22px rgba(80,140,255,.35), inset 0 1px 0 rgba(255,255,255,.35); }
+.cw-dark .tb { margin: 0 -5px; border-radius: 9px 9px 0 0; color: #dbe8ff; text-shadow: 0 0 6px #3d7bff; background: linear-gradient(180deg, rgba(255,255,255,.28) 0 50%, rgba(255,255,255,.04) 50% 100%); }
+.cw-dark .bt i { width: 20px; height: 14px; border-radius: 0 0 5px 5px; border-color: #5f7fbf; background: linear-gradient(#34508a, #14234a 50%, #0b1430 50%, #22397a); }
+.cw-dark .bt i:last-child { background: linear-gradient(#d86a5a, #a02a1a 50%, #7d1608 50%, #c24a38); }
+.cw-dark .cb { background: #0b1430; border: 1px solid #5f7fbf; color: #cfe0ff; }
+.cw-dark .m b { color: #7fd0ff; }
+.cw-dark .m.o b { color: #ff9ad0; }
+.cw-dark .m.s { color: #8aa3d6; }
+.cw-dark .cf { background: transparent; border: 0; color: #bcd2ff; }
+
+@media (prefers-reduced-motion: reduce) { .cw.in, .cw.buzz { animation: none; } }
+`;
+    const styleEl = document.createElement("style");
+    styleEl.textContent = css;
+    document.head.appendChild(styleEl);
+
+    const host = document.createElement("div");
+    host.id = "chats";
+    stage.insertBefore(host, stage.firstChild);
+
+    // ---------- Utilidades ----------
+    const rand = (a, b) => a + Math.random() * (b - a);
+    const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+    const shuffle = (a) => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let gen = 0;   // se incrementa en cada cambio de tema para cancelar los temporizadores viejos
+
+    // sonido suave de mensaje nuevo (con su propio contexto de audio, solo si la música está activada)
+    let ac = null, lastDing = 0;
+    function ding() {
+        if (!DING) return;
+        const mb = document.getElementById("music");
+        if (!mb || !mb.textContent.startsWith("🔊")) return;
+        const now = Date.now();
+        if (now - lastDing < 2500) return;
+        lastDing = now;
+        try {
+            ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+            if (ac.state === "suspended") ac.resume();
+            const t = ac.currentTime;
+            [1318, 1760].forEach((f, i) => {
+                const o = ac.createOscillator(), g = ac.createGain();
+                o.type = "sine"; o.frequency.value = f;
+                g.gain.setValueAtTime(0.0001, t + i * 0.09);
+                g.gain.linearRampToValueAtTime(0.05, t + i * 0.09 + 0.01);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.09 + 0.28);
+                o.connect(g); g.connect(ac.destination);
+                o.start(t + i * 0.09); o.stop(t + i * 0.09 + 0.3);
+            });
+        } catch (e) { /* sin audio, no pasa nada */ }
+    }
+
+    // ---------- Una ventana ----------
+    function makeWindow(style, slot, myGen) {
+        const isIrc = style === "term", isErr = style === "err";
+        const them = shuffle(NICKS.slice()).slice(0, isIrc ? 3 : 1);
+        const me = pick(ME);
+        const nickOf = (n) => isIrc ? `&lt;${n}&gt;` : `${n} dice:`;
+
+        const w = document.createElement("div");
+        w.className = `cw cw-${style} in`;
+        w.style.width = Math.round(rand(215, 255)) + "px";
+        w.style.left = (slot[0] + rand(-1.5, 1.5)).toFixed(1) + "%";
+        w.style.top = (slot[1] + rand(-1.5, 1.5)).toFixed(1) + "%";
+        w.style.setProperty("--r", rand(-3, 3).toFixed(1) + "deg");
+
+        const title = isIrc ? `#${pick(["cyber", "musica", "amigos", "juegos", "chat_arg"])} - IRC` : isErr ? "Error - Mensajería" : style === "w98" ? `Chat - ${them[0]}` : style === "dark" ? `${them[0]} · Chateando` : `${them[0]} - Conversación`;
+        w.innerHTML = `<div class="tb"><span class="ic"></span><span class="ti"></span><span class="bt"><i>_</i><i>□</i><i>✕</i></span></div><div class="cb"></div><div class="cf"></div>`;
+        w.querySelector(".ti").textContent = title;
+        const cb = w.querySelector(".cb"), cf = w.querySelector(".cf");
+
+        const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        function addLine(cls, html) {
+            const d = document.createElement("div");
+            d.className = "m " + cls;
+            d.innerHTML = html;
+            cb.appendChild(d);
+            while (cb.children.length > MAX_LINES) cb.removeChild(cb.firstChild);
+        }
+        let turn = 0;
+        function say() {
+            const mine = turn++ % 2 === 1 && !isIrc;
+            const who = isIrc ? pick(them) : mine ? me : them[0];
+            const nick = isIrc ? `&lt;${esc(who)}&gt;` : `${esc(who)} dice:`;
+            addLine(mine ? "o" : "", `<b>${nick}</b> ${esc(pick(isIrc ? IRC : IM))}`);
+        }
+        function system() {
+            if (isIrc) addLine("s", `* ${esc(pick(NICKS))} ${pick(IRC_SYS)}`);
+            else addLine("e", esc(pick(ERR_SYS)));
+        }
+
+        // mensajes iniciales para que no arranque vacía
+        for (let i = 0; i < 3; i++) say();
+        if (isErr || isIrc) system();
+
+        function buzz() {
+            addLine("s", "¡Zumbido!");
+            if (reduced) return;
+            w.classList.remove("in", "buzz"); void w.offsetWidth; w.classList.add("buzz");
+        }
+        w.addEventListener("animationend", () => w.classList.remove("in", "buzz"));
+
+        function loop() {
+            setTimeout(() => {
+                if (myGen !== gen) return;
+                const typer = isIrc ? pick(them) : them[0];
+                cf.textContent = isIrc ? `${typer} está escribiendo…` : `${typer} está escribiendo un mensaje…`;
+                setTimeout(() => {
+                    if (myGen !== gen) return;
+                    cf.textContent = "";
+                    const r = Math.random();
+                    if ((isErr || isIrc) && r < 0.28) system();
+                    else if (!isIrc && r < 0.09) buzz();
+                    else say();
+                    ding();
+                    loop();
+                }, rand(900, 1700));
+            }, rand(2200, 5600));
+        }
+        setTimeout(() => { if (myGen === gen) loop(); }, rand(300, 2500));   // arrancan desfasadas
+        return w;
+    }
+
+    // ---------- Armar las ventanas de un tema ----------
+    function build(style) {
+        gen++;
+        host.textContent = "";
+        const small = window.matchMedia && window.matchMedia("(max-width: 700px)").matches;
+        const tall = window.innerHeight > 900;
+        let slots = small ? [SIDE_SLOTS[0], SIDE_SLOTS[3]] : SIDE_SLOTS.slice();
+        if (tall && !small) slots = slots.concat(EDGE_SLOTS);
+        shuffle(slots).forEach((s) => host.appendChild(makeWindow(style, s, gen)));
+    }
+
+    // ---------- Seguir el tema activo ----------
+    let current = "";
+    function sync() {
+        const key = [...document.body.classList].find((c) => STYLE_OF[c]);
+        if (!key || key === current) return;
+        current = key;
+        build(STYLE_OF[key]);
+    }
+    new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    sync();
+})();
+
+    </script>
+    <script src="photo.js"></script>
+</body>
+</html>
